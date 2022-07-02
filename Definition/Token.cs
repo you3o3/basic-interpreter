@@ -18,6 +18,7 @@
     public const string TT_EQ = "EQ";
     public const string TT_COMMA = "COMMA";
     public const string TT_ARROW = "ARROW";
+    public const string TT_NEWLINE = "NEWLINE";
     public const string TT_EOF = "EOF";
 
     public const string TT_EE = "EE";  // equal
@@ -32,7 +33,7 @@
             "and", "or", "not",
             "if", "then", "elif", "else",
             "for", "to", "step", "while",
-            "function"
+            "function", "end"
     };
 
     public string type;

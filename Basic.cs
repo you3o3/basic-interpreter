@@ -1,8 +1,8 @@
 using System.Collections.Generic;
 
 // current episode
-// https://www.youtube.com/watch?v=zKCckdwwBsU&list=PLZQftyCk7_SdoVexSmwy_tBgs7P0b97yD&index=13
-// EP12: Multi-line statements
+// https://www.youtube.com/watch?v=uccr-hbp9KQ&list=PLZQftyCk7_SdoVexSmwy_tBgs7P0b97yD&index=14
+// EP13: return, continue, break
 
 // reference to https://www.youtube.com/watch?v=Eythq9848Fg&list=PLZQftyCk7_SdoVexSmwy_tBgs7P0b97yD
 
@@ -74,7 +74,7 @@ public class Basic
         Interpreter interpreter = new();
         Context c = context ?? new("<program>");
         c.symbolTable = globalSymbolTable;
-        RuntimeResult result = interpreter.Visit(ast.node, c);
+        RuntimeResult result = interpreter.Visit((Node)ast.node, c);
 
         return (result.value, result.error, c);
     }

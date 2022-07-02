@@ -33,6 +33,11 @@ internal class Lexer
             {
                 Advance();
             }
+            if (";\n".Contains(currCh))
+            {
+                tokens.Add(new Token(Token.TT_NEWLINE, null, pos));
+                Advance();
+            }
             else if (Constant.DIGITS.Contains(currCh))
             {
                 tokens.Add(MakeNumber());

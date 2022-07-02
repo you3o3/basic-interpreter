@@ -11,93 +11,192 @@ internal class Parser
     public Parser(List<Token> tokens)
     {
         this.tokens = tokens;
+        //tokens.ForEach((token) => { Debug.Log(token.ToString()); } );
         tokenIdx = -1;
         Advance();
+    }
+
+    private void UpdateCurrentToken()
+    {
+        if (tokenIdx >= 0 && tokenIdx < tokens.Count)
+        {
+            currToken = tokens[tokenIdx];
+        }
     }
 
     public Token Advance()
     {
         tokenIdx++;
-        if (tokenIdx < tokens.Count)
-        {
-            currToken = tokens[tokenIdx];
-        }
+        UpdateCurrentToken();
+        //Debug.Log(currToken.type);
+        return currToken;
+    }
+
+    public Token Reverse(int amount = 1)
+    {
+        tokenIdx -= amount;
+        UpdateCurrentToken();
         //Debug.Log(currToken.type);
         return currToken;
     }
 
     public ParseResult Parse()
     {
-        ParseResult res = Expr();
+        ParseResult res = Statements();
         if (res.error == null && currToken.type != Token.TT_EOF)
         {
-            return res.Failure(new InvalidSyntaxError("Expected '+', '-', '*', '/'", currToken.posStart, currToken.posEnd));
+            return res.Failure(new InvalidSyntaxError(
+                "Expected '+', '-', '*', '/', '^', '==', '!=', '<', '>', <=', '>=', 'and' or 'or'"
+                , currToken.posStart, currToken.posEnd)
+            );
         }
         return res;
     }
 
     /////////////////////////////////////////////////////////////////
 
-    private object IfExpr()
+    // FIXME some problem in if statements: if 5 == 5 then; print("xxx") doesn't work
+
+    private ParseResult IfExprCases(string caseKeyword)
     {
         ParseResult res = new();
-        List<(Node, Node)> cases = new();
-        Node elseCase = null;
+        List<(Node condition, Node statements, bool? shouldReturnNull)> cases = new();
+        (Node, bool? shouldReturnNull) elseCase = (null, null);
 
-        if (!currToken.Matches(Token.TT_KEYWORD, "if"))
+        if (!currToken.Matches(Token.TT_KEYWORD, caseKeyword))
         {
-            return res.Failure(new InvalidSyntaxError("Expected 'if'", currToken.posStart, currToken.posEnd));
+            return res.Failure(new InvalidSyntaxError(
+                string.Format("Expected '{0}'", caseKeyword), currToken.posStart, currToken.posEnd));
         }
 
         res.RegisterAdvancement();
         Advance();
 
-        Node condition = null;
-        Node expr = null;
-        ParseResult returnRes = null;
+        Node condition = (Node)res.Register(Expr());
+        if (res.error != null) return res;
 
-        ParseResult SaveNextConditionAndExpr()
+        if (!currToken.Matches(Token.TT_KEYWORD, "then"))
         {
-            condition = (Node)res.Register(Expr());
-            if (res.error != null) return res;
+            return res.Failure(new InvalidSyntaxError("Expected 'then'", currToken.posStart, currToken.posEnd));
+        }
 
-            if (!currToken.Matches(Token.TT_KEYWORD, "then"))
+        res.RegisterAdvancement();
+        Advance();
+
+        if (currToken.type == Token.TT_NEWLINE)
+        {
+            res.RegisterAdvancement();
+            Advance();
+
+            Node statements = (Node)res.Register(Statements());
+            if (res.error != null) return res;
+            cases.Add((condition, statements, true));
+
+            if (currToken.Matches(Token.TT_KEYWORD, "end"))
             {
-                return res.Failure(new InvalidSyntaxError("Expected 'then'", currToken.posStart, currToken.posEnd));
+                res.RegisterAdvancement();
+                Advance();
             }
-
-            res.RegisterAdvancement();
-            Advance();
-
-            expr = (Node)res.Register(Expr());
-            if (res.error != null) return res;
-            cases.Add((condition, expr));
-
-            return null;
+            else
+            {
+                object allCases = res.Register(IfExprB_OR_C());
+                if (res.error != null) return res;
+                List<(Node condition, Node statements, bool? shouldReturnNull)> newCases;
+                (newCases, elseCase) = ((List<(Node, Node, bool?)>, (Node, bool?)))allCases;
+                //newCases.ForEach((c) => { cases.Add((c.condition, c.statements, null)); });
+                cases.AddRange(newCases);
+            }
         }
-
-        returnRes = SaveNextConditionAndExpr();
-        if (returnRes != null) return returnRes;
-
-        while (currToken.Matches(Token.TT_KEYWORD, "elif"))
+        else
         {
-            res.RegisterAdvancement();
-            Advance();
+            Node expr = (Node)res.Register(Expr());
+            if (res.error != null) return res;
+            cases.Add((condition, expr, false));
 
-            returnRes = SaveNextConditionAndExpr();
-            if (returnRes != null) return returnRes;
+            object allCases = res.Register(IfExprB_OR_C());
+            if (res.error != null) return res;
+            List<(Node condition, Node statements, bool? shouldReturnNull)> newCases;
+            (newCases, elseCase) = ((List<(Node, Node, bool?)>, (Node, bool?)))allCases;
+            //newCases.ForEach((c) => { cases.Add((c.condition, c.statements, null)); });
+            cases.AddRange(newCases);
         }
+        return res.Success((cases, elseCase));
+    } 
+
+    private object IfExpr()
+    {
+        ParseResult res = new();
+        object allCases = res.Register(IfExprCases("if"));
+        (List<(Node, Node, bool?)> cases, (Node, bool?) elseCase) = ((List<(Node, Node, bool?)>, (Node, bool?)))allCases;
+        if (res.error != null) return res;
+        return res.Success(new IfNode(cases, elseCase));
+    }
+
+    // elif
+    private object IfExprB()
+    {
+        return IfExprCases("elif");
+    }
+
+    // else
+    private object IfExprC()
+    {
+        ParseResult res = new();
+        (Node, bool? shouldReturnNull) elseCase = (null, null);
 
         if (currToken.Matches(Token.TT_KEYWORD, "else"))
         {
             res.RegisterAdvancement();
             Advance();
 
-            elseCase = (Node)res.Register(Expr());
+            if (currToken.type == Token.TT_NEWLINE)
+            {
+                res.RegisterAdvancement();
+                Advance();
+
+                Node statements = (Node)res.Register(Statements());
+                if (res.error != null) return res;
+                elseCase = (statements, true);
+
+                if (currToken.Matches(Token.TT_KEYWORD, "end"))
+                {
+                    res.RegisterAdvancement();
+                    Advance();
+                }
+                else
+                {
+                    return res.Failure(new InvalidSyntaxError("Expected 'end'", currToken.posStart, currToken.posEnd));
+                }
+            }
+            else
+            {
+                Node expr = (Node)res.Register(Expr());
+                if (res.error != null) return res;
+                elseCase = (expr, false);
+            }
+        }
+        return res.Success(elseCase);
+    }
+
+    private object IfExprB_OR_C()
+    {
+        ParseResult res = new();
+        List<(Node condition, Node statements, bool? shouldReturnNull)> cases = new();
+        (Node, bool? shouldReturnNull) elseCase = (null, null);
+
+        if (currToken.Matches(Token.TT_KEYWORD, "elif"))
+        {
+            object allCases = res.Register(IfExprB());
+            if (res.error != null) return res;
+            (cases, elseCase) = ((List<(Node, Node, bool?)>, (Node, bool?)))allCases;
+        }
+        else
+        {
+            elseCase = ((Node, bool?))res.Register(IfExprC());
             if (res.error != null) return res;
         }
 
-        return res.Success(new IfNode(cases, elseCase));
+        return res.Success((cases, elseCase));
     }
 
     private object ForExpr()
@@ -164,10 +263,30 @@ internal class Parser
         res.RegisterAdvancement();
         Advance();
 
-        Node bodyNode = (Node)res.Register(Expr());
+        Node body;
+        if (currToken.type == Token.TT_NEWLINE)
+        {
+            res.RegisterAdvancement();
+            Advance();
+
+            body = (Node)res.Register(Statements());
+            if (res.error != null) return res;
+
+            if (!currToken.Matches(Token.TT_KEYWORD, "end"))
+            {
+                return res.Failure(new InvalidSyntaxError("Expected 'end'", currToken.posStart, currToken.posEnd));
+            }
+
+            res.RegisterAdvancement();
+            Advance();
+
+            return res.Success(new ForNode(varName, startValNode, endValNode, stepValNode, body, true));
+        }
+
+        body = (Node)res.Register(Expr());
         if (res.error != null) return res;
 
-        return res.Success(new ForNode(varName, startValNode, endValNode, stepValNode, bodyNode));
+        return res.Success(new ForNode(varName, startValNode, endValNode, stepValNode, body, false));
     }
 
     private object WhileExpr()
@@ -195,10 +314,30 @@ internal class Parser
         res.RegisterAdvancement();
         Advance();
 
-        Node bodyNode = (Node)res.Register(Expr());
+        Node body;
+        if (currToken.type == Token.TT_NEWLINE)
+        {
+            res.RegisterAdvancement();
+            Advance();
+
+            body = (Node)res.Register(Statements());
+            if (res.error != null) return res;
+
+            if (!currToken.Matches(Token.TT_KEYWORD, "end"))
+            {
+                return res.Failure(new InvalidSyntaxError("Expected 'end'", currToken.posStart, currToken.posEnd));
+            }
+
+            res.RegisterAdvancement();
+            Advance();
+
+            return res.Success(new WhileNode(conditionNode, body, true));
+        }
+
+        body = (Node)res.Register(Expr());
         if (res.error != null) return res;
 
-        return res.Success(new WhileNode(conditionNode, bodyNode));
+        return res.Success(new WhileNode(conditionNode, body, false));
     }
 
     private object FuncDef()
@@ -274,18 +413,37 @@ internal class Parser
         res.RegisterAdvancement();
         Advance();
 
-        if (currToken.type != Token.TT_ARROW)
+        if (currToken.type == Token.TT_ARROW)
         {
-            return res.Failure(new InvalidSyntaxError("Expected '->'", currToken.posStart, currToken.posEnd));
+            res.RegisterAdvancement();
+            Advance();
+
+            Node nodeToReturn = (Node)res.Register(Expr());
+            if (res.error != null) return res;
+
+            return res.Success(new FuncDefNode(varNameToken, argNameTokens, nodeToReturn, false));
+        }
+
+        if (currToken.type != Token.TT_NEWLINE)
+        {
+            return res.Failure(new InvalidSyntaxError("Expected '->' or newline", currToken.posStart, currToken.posEnd));
         }
 
         res.RegisterAdvancement();
         Advance();
 
-        Node nodeToReturn = (Node)res.Register(Expr());
+        Node body = (Node)res.Register(Statements());
         if (res.error != null) return res;
 
-        return res.Success(new FuncDefNode(varNameToken, argNameTokens, nodeToReturn));
+        if (!currToken.Matches(Token.TT_KEYWORD, "end"))
+        {
+            return res.Failure(new InvalidSyntaxError("Expected 'end'", currToken.posStart, currToken.posEnd));
+        }
+
+        res.RegisterAdvancement();
+        Advance();
+
+        return res.Success(new FuncDefNode(varNameToken, argNameTokens, body, true));
     }
 
     public ParseResult Atom()
@@ -564,6 +722,7 @@ internal class Parser
 
         Node node = (Node)res.Register(BinOp(CompExpr,
             new List<(string, string)> { (Token.TT_KEYWORD, "and"), (Token.TT_KEYWORD, "or") }));
+        //Debug.Log(node.ToString());
         if (res.error != null)
             return res.Failure(new InvalidSyntaxError(
                 "Expected 'var', 'if', 'for', 'while', 'function', int, float, identifier, '+', '-', '(', '[' or 'not'",
@@ -571,6 +730,52 @@ internal class Parser
             ));
 
         return res.Success(node);
+    }
+
+    public ParseResult Statements()
+    {
+        ParseResult res = new();
+        List<Node> statements = new();
+        Position posStart = currToken.posStart.Copy();
+
+        while (currToken.type == Token.TT_NEWLINE)
+        {
+            res.RegisterAdvancement();
+            Advance();
+        }
+
+        Node statement = (Node)res.Register(Expr());
+        if (res.error != null) return res;
+        statements.Add(statement);
+
+        bool moreStatements = true;
+
+        while (true)
+        {
+            int newlineCount = 0;
+            while (currToken.type == Token.TT_NEWLINE)
+            {
+                res.RegisterAdvancement();
+                Advance();
+                newlineCount++;
+            }
+            if (newlineCount == 0)
+            {
+                moreStatements = false;
+            }
+            if (!moreStatements) break;
+
+            statement = (Node)res.TryRegister(Expr());
+            if (statement == null)
+            {
+                Reverse(res.toReverseCount);
+                moreStatements = false;
+                continue;
+            }
+            statements.Add(statement);
+        }
+        return res.Success(new ListNode(statements, posStart, currToken.posEnd.Copy()));
+
     }
 
     /////////////////////////////////////////////////////////////////

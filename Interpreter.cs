@@ -142,7 +142,7 @@ internal class Interpreter
         RuntimeResult res = new RuntimeResult();
         IfNode ifNode = (IfNode)node;
 
-        foreach ((Node condition, Node expr) in ifNode.cases)
+        foreach ((Node condition, Node expr, bool? shouldReturnNull) in ifNode.cases)
         {
             RuntimeValue conditionValue = (RuntimeValue)res.Register(Visit(condition, context));
             if (res.error != null) return res;
@@ -151,18 +151,21 @@ internal class Interpreter
             {
                 RuntimeValue exprValue = (RuntimeValue)res.Register(Visit(expr, context));
                 if (res.error != null) return res;
-                return res.Success(exprValue);
+                //Debug.Log(string.Format("val: {0}, shouldReturnNull: {1}", exprValue.ToString(), shouldReturnNull));
+                return res.Success(shouldReturnNull == null || shouldReturnNull == true ? Number.NULL : exprValue);
+                //return res.Success(exprValue);
             }
         }
 
-        if (ifNode.elseCase != null)
+        if (ifNode.elseCase.Expr != null)
         {
-            RuntimeValue elseValue = (RuntimeValue)res.Register(Visit(ifNode.elseCase, context));
+            RuntimeValue elseValue = (RuntimeValue)res.Register(Visit(ifNode.elseCase.Expr, context));
             if (res.error != null) return res;
-            return res.Success(elseValue);
+            return res.Success(ifNode.elseCase.shouldReturnNull == null || ifNode.elseCase.shouldReturnNull == true ? Number.NULL : elseValue);
+            //return res.Success(elseValue);
         }
 
-        return res.Success(null);
+        return res.Success(Number.NULL);
     }
 
     private RuntimeResult Visit_ForNode(Node node, Context context)
@@ -208,8 +211,10 @@ internal class Interpreter
             if (res.error != null) return res;
         }
 
-
-        return res.Success(new List(elements).SetContext(context).SetPos(forNode.posStart, forNode.posEnd));
+        return res.Success(
+            (bool)forNode.shouldReturnNull ? Number.NULL :
+            new List(elements).SetContext(context).SetPos(forNode.posStart, forNode.posEnd)
+        );
     }
 
     private RuntimeResult Visit_WhileNode(Node node, Context context)
@@ -230,7 +235,10 @@ internal class Interpreter
             if (res.error != null) return res;
         }
 
-        return res.Success(new List(elements).SetContext(context).SetPos(whileNode.posStart, whileNode.posEnd));
+        return res.Success(
+            (bool)whileNode.shouldReturnNull ? Number.NULL :
+            new List(elements).SetContext(context).SetPos(whileNode.posStart, whileNode.posEnd)
+        );
     }
 
     private RuntimeResult Visit_FuncDefNode(Node node, Context context)
@@ -248,7 +256,7 @@ internal class Interpreter
             argNames.Add((string)argName.value);
         }
 
-        Function funcVal = new(funcName, bodyNode, argNames);
+        Function funcVal = new(funcName, bodyNode, argNames, funcDefNode.shouldReturnNull);
         funcVal.SetContext(context);
         funcVal.SetPos(funcDefNode.posStart, funcDefNode.posEnd);
 

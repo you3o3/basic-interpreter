@@ -119,15 +119,15 @@ internal class UnaryOpNode : Node
 
 internal class IfNode : Node
 {
-    internal List<(Node Condition, Node Expr)> cases;
-    internal Node elseCase;
+    internal List<(Node Condition, Node Expr, bool? shouldReturnNull)> cases;
+    internal (Node Expr, bool? shouldReturnNull) elseCase;
 
-    public IfNode(List<(Node Condition, Node Expr)> cases, Node elseCase)
+    public IfNode(List<(Node Condition, Node Expr, bool? shouldReturnNull)> cases, (Node Expr, bool? shouldReturnNull) elseCase)
     {
         this.cases = cases;
         this.elseCase = elseCase;
         posStart = cases[0].Condition.posStart;
-        posEnd = (elseCase ?? cases[cases.Count - 1].Condition).posEnd; // coalesce
+        posEnd = (elseCase.Expr ?? cases[cases.Count - 1].Condition).posEnd; // coalesce
     }
 }
 
@@ -135,14 +135,16 @@ internal class ForNode : Node
 {
     internal Token varNameToken;
     internal Node startValNode, endValNode, stepValNode, bodyNode;
+    internal bool? shouldReturnNull;
 
-    public ForNode(Token varNameToken, Node startValNode, Node endValNode, Node stepValNode, Node bodyNode)
+    public ForNode(Token varNameToken, Node startValNode, Node endValNode, Node stepValNode, Node bodyNode, bool? shouldReturnNull)
     {
         this.varNameToken = varNameToken;
         this.startValNode = startValNode;
         this.endValNode = endValNode;
         this.stepValNode = stepValNode;
         this.bodyNode = bodyNode;
+        this.shouldReturnNull = shouldReturnNull;
         posStart = varNameToken.posStart;
         posEnd = bodyNode.posEnd;
     }
@@ -151,11 +153,13 @@ internal class ForNode : Node
 internal class WhileNode : Node
 {
     internal Node conditionNode, bodyNode;
+    internal bool? shouldReturnNull;
 
-    public WhileNode(Node conditionNode, Node bodyNode)
+    public WhileNode(Node conditionNode, Node bodyNode, bool? shouldReturnNull)
     {
         this.conditionNode = conditionNode;
         this.bodyNode = bodyNode;
+        this.shouldReturnNull = shouldReturnNull;
         posStart = conditionNode.posStart;
         posEnd = bodyNode.posEnd;
     }
@@ -166,12 +170,14 @@ internal class FuncDefNode : Node
     internal Token varNameToken;
     internal List<Token> argNameTokens;
     internal Node bodyNode;
+    internal bool? shouldReturnNull;
 
-    public FuncDefNode(Token varNameToken, List<Token> argNameTokens, Node bodyNode)
+    public FuncDefNode(Token varNameToken, List<Token> argNameTokens, Node bodyNode, bool? shouldReturnNull)
     {
         this.varNameToken = varNameToken;
         this.argNameTokens = argNameTokens;
         this.bodyNode = bodyNode;
+        this.shouldReturnNull = shouldReturnNull;
 
         if (varNameToken != null)
         {

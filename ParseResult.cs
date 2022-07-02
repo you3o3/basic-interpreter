@@ -1,23 +1,43 @@
 ﻿internal class ParseResult
 {
+    public int lastRegisteredAdvanceCount;
     public int advanceCount;
+    public int toReverseCount;
     public Error error;
-    public Node node;
+    public object node;
 
     public object Register(object res)
     {
-        ParseResult r = (ParseResult)res;
-        advanceCount += r.advanceCount;
-        if (r.error != null) this.error = r.error;
-        return r.node;
+        if (res is ParseResult r)
+        {
+            lastRegisteredAdvanceCount = advanceCount;
+            advanceCount += r.advanceCount;
+            if (r.error != null) this.error = r.error;
+            return r.node;
+        }
+        return res;
+    }
+
+    public object TryRegister(object res)
+    {
+        if (res is ParseResult r)
+        {
+            if (r.error != null)
+            {
+                toReverseCount = advanceCount;
+                return null;
+            }
+        }
+        return Register(res);
     }
 
     public void RegisterAdvancement()
     {
+        lastRegisteredAdvanceCount = 1;
         advanceCount++;
     }
 
-    public ParseResult Success(Node node)
+    public ParseResult Success(object node)
     {
         this.node = node;
         return this;
