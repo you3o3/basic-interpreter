@@ -11,7 +11,7 @@ internal abstract class RuntimeValue
         return this;
     }
 
-    internal virtual RuntimeValue SetContext(Context context = null)
+    internal virtual RuntimeValue SetContext(Context context)
     {
         this.context = context;
         return this;
@@ -43,17 +43,17 @@ internal abstract class RuntimeValue
 
     private (RuntimeValue Value, Error Error) DefaultOperatorError(RuntimeValue other, char op)
     {
-        return (null, IllegalOperation(string.Format("'{0}' operator is not defined for {1}", op, typeof(RuntimeValue).Name), other));
+        return (null, IllegalOperation(string.Format("'{0}' operator is not defined for {1}", op, this.GetType().Name), other));
     }
 
     private (RuntimeValue Value, Error Error) DefaultOperatorError(RuntimeValue other, string op)
     {
-        return (null, IllegalOperation(string.Format("'{0}' operator is not defined for {1}", op, typeof(RuntimeValue).Name), other));
+        return (null, IllegalOperation(string.Format("'{0}' operator is not defined for {1}", op, this.GetType().Name), other));
     }
 
     private (RuntimeValue Value, Error Error) DefaultKeywordError(RuntimeValue other, string keyword)
     {
-        return (null, IllegalOperation(string.Format("'{0}' keyword is not defined for {1}", keyword, typeof(RuntimeValue).Name), other));
+        return (null, IllegalOperation(string.Format("'{0}' keyword is not defined for {1}", keyword, this.GetType().Name), other));
     }
 
     private protected Error IllegalOperation(string message, RuntimeValue other = null)

@@ -1,0 +1,31 @@
+﻿# A copy of https://github.com/davidcallanan/py-myopl-code/blob/master/ep14/example.myopl
+# This is a very useful piece of software
+
+function oopify(prefix) -> prefix + "oop"
+
+function join(elements, separator)
+	var result = ""
+
+	for i = 0 to len(elements) then
+		var result = result + elements/i
+		if i != len(elements) - 1 then var result = result + separator
+	end
+
+	return result
+end
+
+function map(elements, func)
+	var new_elements = []
+
+	for i = 0 to len(elements) then
+		var new_elements = new_elements + func(elements/i)
+	end
+
+	return new_elements
+end
+
+print("Greetings universe!")
+
+for i = 0 to 5 then
+	print(join(map(["l", "sp"], oopify), ", "))
+end

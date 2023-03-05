@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
 
@@ -16,6 +17,8 @@ internal class BuiltInFunction : BaseFunction
     public static BuiltInFunction append = new("append");
     public static BuiltInFunction pop = new("pop");
     public static BuiltInFunction extend = new("extend");
+    public static BuiltInFunction len = new("len");
+    public static BuiltInFunction run = new("run");
 
     public BuiltInFunction(string name) : base(name)
     {
@@ -34,12 +37,11 @@ internal class BuiltInFunction : BaseFunction
 
         List<string> argNames = method.GetCustomAttribute<FunctionAttribute>().argNames;
 
-        _ = res.Register(CheckAndPopulateArguments(argNames, args, executionContext));
-        if (res.error != null) return res;
+        _ = res.Register<object>(CheckAndPopulateArguments(argNames, args, executionContext));
+        if (res.ShouldReturn()) return res;
 
-        //RuntimeResult returnValue = (RuntimeResult)res.Register(method.Invoke(this, new object[] { executionContext }));
-        object returnValue = res.Register(method.Invoke(this, new object[] { executionContext }));
-        if (res.error != null) return res;
+        object returnValue = res.Register<object>((RuntimeResult)method.Invoke(this, new object[] { executionContext }));
+        if (res.ShouldReturn()) return res;
 
         return res.Success(returnValue);
     }
@@ -156,6 +158,7 @@ internal class BuiltInFunction : BaseFunction
         List list = (List)listTest;
 
         list.elements.Add(value);
+        executionContext.symbolTable.Set("list", list);
         return new RuntimeResult().Success(Number.NULL);
     }
 
@@ -190,6 +193,7 @@ internal class BuiltInFunction : BaseFunction
                 new RuntimeError("Element at this index could not be removed from list because index is out of bounds"
                 , executionContext, posStart, posEnd));
         }
+        executionContext.symbolTable.Set("list", list);
         return new RuntimeResult().Success(element);
     }
 
@@ -213,6 +217,58 @@ internal class BuiltInFunction : BaseFunction
         List listB = (List)listBTest;
 
         listA.elements.AddRange(listB.elements);
+
+        executionContext.symbolTable.Set("listA", listA);
+        executionContext.symbolTable.Set("listB", listB);
+        return new RuntimeResult().Success(Number.NULL);
+    }
+
+    [Function("list")]
+    private RuntimeResult Execute_len(Context executionContext)
+    {
+        object listTest = executionContext.symbolTable.Get("list");
+        if (listTest is not List)
+        {
+            return new RuntimeResult().Failure(new RuntimeError("Argument must be list"
+                , executionContext, posStart, posEnd));
+        }
+        List list = (List)listTest;
+
+        return new RuntimeResult().Success(new Number(list.elements.Count));
+    }
+
+    [Function("fn")]
+    private RuntimeResult Execute_run(Context executionContext)
+    {
+        object fileNameTest = executionContext.symbolTable.Get("fn");
+        if (fileNameTest is not String)
+        {
+            return new RuntimeResult().Failure(new RuntimeError("First argument must be string"
+                , executionContext, posStart, posEnd));
+        }
+        string fileName = ((String)fileNameTest).value;
+
+        string script;
+        try
+        {
+            script = System.IO.File.ReadAllText(fileName);
+        }
+        catch (Exception)
+        {
+            return new RuntimeResult().Failure(new RuntimeError(string.Format("Failed to load script \"{0}\"", fileName)
+                , executionContext, posStart, posEnd));
+        }
+
+        Error error;
+        (_, error, _) = Basic.Run(fileName, script);
+
+        if (error != null)
+        {
+            return new RuntimeResult().Failure(new RuntimeError(
+                string.Format("Failed to finish executing script \"{0}\"\n{1}", fileName, error.ToString())
+                , executionContext, posStart, posEnd));
+        }
+
         return new RuntimeResult().Success(Number.NULL);
     }
 }

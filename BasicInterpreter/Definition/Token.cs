@@ -33,7 +33,8 @@
             "and", "or", "not",
             "if", "then", "elif", "else",
             "for", "to", "step", "while",
-            "function", "end"
+            "function", "end",
+            "return", "continue", "break"
     };
 
     public string type;

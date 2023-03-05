@@ -19,7 +19,7 @@
 
         if (currCh == '\n')
         {
-            idx += 1;
+            line += 1;
             col = 0;
         }
         return this;

@@ -1,11 +1,5 @@
 using System.Collections.Generic;
 
-// current episode
-// https://www.youtube.com/watch?v=uccr-hbp9KQ&list=PLZQftyCk7_SdoVexSmwy_tBgs7P0b97yD&index=14
-// EP13: return, continue, break
-
-// reference to https://www.youtube.com/watch?v=Eythq9848Fg&list=PLZQftyCk7_SdoVexSmwy_tBgs7P0b97yD
-
 public class Basic 
 {
     ///////////////////////////////////////////////////////////////////////////
@@ -53,6 +47,8 @@ public class Basic
         globalSymbolTable.Set("append", BuiltInFunction.append);
         globalSymbolTable.Set("pop", BuiltInFunction.pop);
         globalSymbolTable.Set("extend", BuiltInFunction.extend);
+        globalSymbolTable.Set("len", BuiltInFunction.len);
+        globalSymbolTable.Set("run", BuiltInFunction.run);
     }
 
     public static (object Obj, Error Error, Context context) Run(string fileName, string code, Context context = null)
@@ -60,9 +56,7 @@ public class Basic
         InitSymbolTable();
         // tokenize the string
         Lexer lexer = new(fileName, code);
-        var tokensErrTuple = lexer.MakeTokens();
-        List<Token> tokens = tokensErrTuple.Tokens;
-        Error error = tokensErrTuple.Error;
+        (List<Token> tokens, Error error) = lexer.MakeTokens();
         if (error != null) return (null, error, null);
 
         // parse and allocate the tokens into an abstract syntax tree

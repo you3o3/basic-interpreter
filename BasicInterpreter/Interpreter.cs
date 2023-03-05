@@ -44,8 +44,8 @@ internal class Interpreter
         List<RuntimeValue> elements = new();
         foreach (Node elementNode in listNode.elementNodes)
         {
-            elements.Add((RuntimeValue)res.Register(Visit(elementNode, context)));
-            if (res.error != null) return res;
+            elements.Add(res.Register<RuntimeValue>(Visit(elementNode, context)));
+            if (res.ShouldReturn()) return res;
         }
         return res.Success(new List(elements).SetContext(context).SetPos(listNode.posStart, listNode.posEnd));
     }
@@ -71,8 +71,8 @@ internal class Interpreter
         RuntimeResult res = new RuntimeResult();
         VarAssignNode varAssignNode = (VarAssignNode)node;
         string varName = (string)varAssignNode.varNameToken.value;
-        object value = res.Register(Visit(varAssignNode.valueNode, context));
-        if (res.error != null) return res;
+        var value = res.Register<RuntimeValue>(Visit(varAssignNode.valueNode, context));
+        if (res.ShouldReturn()) return res;
 
         context.symbolTable.Set(varName, value);
         return res.Success(value);
@@ -84,10 +84,10 @@ internal class Interpreter
         BinOpNode binOpNode = (BinOpNode)node;
         Token token = binOpNode.opToken;
 
-        RuntimeValue left = (RuntimeValue)res.Register(Visit(binOpNode.left, context));
-        if (res.error != null) return res;
-        RuntimeValue right = (RuntimeValue)res.Register(Visit(binOpNode.right, context));
-        if (res.error != null) return res;
+        RuntimeValue left = res.Register<RuntimeValue>(Visit(binOpNode.left, context));
+        if (res.ShouldReturn()) return res;
+        RuntimeValue right = res.Register<RuntimeValue>(Visit(binOpNode.right, context));
+        if (res.ShouldReturn()) return res;
 
         (RuntimeValue Value, Error Error) result = (null, null);
 
@@ -118,8 +118,8 @@ internal class Interpreter
         UnaryOpNode unaryOpNode = (UnaryOpNode)node;
         Token token = unaryOpNode.opToken;
 
-        RuntimeValue num = (RuntimeValue)res.Register(Visit(unaryOpNode.node, context));
-        if (res.error != null) return res;
+        RuntimeValue num = res.Register<RuntimeValue>(Visit(unaryOpNode.node, context));
+        if (res.ShouldReturn()) return res;
 
         (RuntimeValue Value, Error Error) result = (null, null);
 
@@ -144,25 +144,22 @@ internal class Interpreter
 
         foreach ((Node condition, Node expr, bool? shouldReturnNull) in ifNode.cases)
         {
-            RuntimeValue conditionValue = (RuntimeValue)res.Register(Visit(condition, context));
-            if (res.error != null) return res;
+            RuntimeValue conditionValue = res.Register<RuntimeValue>(Visit(condition, context));
+            if (res.ShouldReturn()) return res;
 
             if (conditionValue.IsTrue() ?? false)
             {
-                RuntimeValue exprValue = (RuntimeValue)res.Register(Visit(expr, context));
-                if (res.error != null) return res;
-                //Debug.Log(string.Format("val: {0}, shouldReturnNull: {1}", exprValue.ToString(), shouldReturnNull));
+                RuntimeValue exprValue = res.Register<RuntimeValue>(Visit(expr, context));
+                if (res.ShouldReturn()) return res;
                 return res.Success(shouldReturnNull == null || shouldReturnNull == true ? Number.NULL : exprValue);
-                //return res.Success(exprValue);
             }
         }
 
         if (ifNode.elseCase.Expr != null)
         {
-            RuntimeValue elseValue = (RuntimeValue)res.Register(Visit(ifNode.elseCase.Expr, context));
-            if (res.error != null) return res;
+            RuntimeValue elseValue = res.Register<RuntimeValue>(Visit(ifNode.elseCase.Expr, context));
+            if (res.ShouldReturn()) return res;
             return res.Success(ifNode.elseCase.shouldReturnNull == null || ifNode.elseCase.shouldReturnNull == true ? Number.NULL : elseValue);
-            //return res.Success(elseValue);
         }
 
         return res.Success(Number.NULL);
@@ -175,17 +172,17 @@ internal class Interpreter
 
         List<RuntimeValue> elements = new();
 
-        RuntimeValue startValue = (RuntimeValue)res.Register(Visit(forNode.startValNode, context));
-        if (res.error != null) return res;
+        RuntimeValue startValue = res.Register<RuntimeValue>(Visit(forNode.startValNode, context));
+        if (res.ShouldReturn()) return res;
 
-        RuntimeValue endValue = (RuntimeValue)res.Register(Visit(forNode.endValNode, context));
-        if (res.error != null) return res;
+        RuntimeValue endValue = res.Register<RuntimeValue>(Visit(forNode.endValNode, context));
+        if (res.ShouldReturn()) return res;
 
         RuntimeValue stepValue = new Number(1);
         if (forNode.stepValNode != null)
         {
-            stepValue = (RuntimeValue)res.Register(Visit(forNode.stepValNode, context));
-            if (res.error != null) return res;
+            stepValue = res.Register<RuntimeValue>(Visit(forNode.stepValNode, context));
+            if (res.ShouldReturn()) return res;
         }
 
         if (!(startValue is Number && endValue is Number && stepValue is Number))
@@ -207,8 +204,13 @@ internal class Interpreter
             context.symbolTable.Set((string)forNode.varNameToken.value, new Number(i));
             i += stepVal;
 
-            elements.Add((RuntimeValue)res.Register(Visit(forNode.bodyNode, context)));
-            if (res.error != null) return res;
+            RuntimeValue value = res.Register<RuntimeValue>(Visit(forNode.bodyNode, context));
+            if (res.ShouldReturn() && res.loopShouldContinue == false && res.loopShouldBreak == false) return res;
+
+            if (res.loopShouldContinue) continue;
+            if (res.loopShouldBreak) break;
+
+            elements.Add(value);
         }
 
         return res.Success(
@@ -226,13 +228,19 @@ internal class Interpreter
 
         while (true)
         {
-            RuntimeValue condition = (RuntimeValue)res.Register(Visit(whileNode.conditionNode, context));
-            if (res.error != null) return res;
+            RuntimeValue condition = res.Register<RuntimeValue>(Visit(whileNode.conditionNode, context));
+            if (res.ShouldReturn()) return res;
 
             if (!(condition.IsTrue() ?? false)) break;
 
-            elements.Add((RuntimeValue)res.Register(Visit(whileNode.bodyNode, context)));
-            if (res.error != null) return res;
+            RuntimeValue value = res.Register<RuntimeValue>(Visit(whileNode.bodyNode, context));
+
+            if (res.ShouldReturn() && res.loopShouldContinue == false && res.loopShouldBreak == false) return res;
+
+            if (res.loopShouldContinue) continue;
+            if (res.loopShouldBreak) break;
+
+            elements.Add(value);
         }
 
         return res.Success(
@@ -256,7 +264,7 @@ internal class Interpreter
             argNames.Add((string)argName.value);
         }
 
-        Function funcVal = new(funcName, bodyNode, argNames, funcDefNode.shouldReturnNull);
+        Function funcVal = new(funcName, bodyNode, argNames, funcDefNode.shouldAutoReturn);
         funcVal.SetContext(context);
         funcVal.SetPos(funcDefNode.posStart, funcDefNode.posEnd);
 
@@ -274,26 +282,51 @@ internal class Interpreter
 
         RuntimeValue[] args = new RuntimeValue[callNode.argNodes.Count];
 
-        RuntimeValue valueToCall = (RuntimeValue)res.Register(Visit(callNode.nodeToCall, context));
-        if (res.error != null) return res;
+        RuntimeValue valueToCall = res.Register<RuntimeValue>(Visit(callNode.nodeToCall, context));
+        if (res.ShouldReturn()) return res;
         valueToCall = valueToCall.Copy();
         valueToCall.SetPos(callNode.posStart, callNode.posEnd);
 
         for (int i = 0; i < callNode.argNodes.Count; i++)
         {
             Node argNode = callNode.argNodes[i];
-            args[i] = (RuntimeValue)res.Register(Visit(argNode, context));
-            if (res.error != null) return res;
+            args[i] = res.Register<RuntimeValue>(Visit(argNode, context));
+            if (res.ShouldReturn()) return res;
         }
         //foreach (Node argNode in callNode.argNodes)
         //{
-        //    args.Append((RuntimeValue)res.Register(Visit(argNode, context)));
-        //    if (res.error != null) return res;
+        //    args.Append(res.Register<RuntimeValue>(Visit(argNode, context)));
+        //    if (res.ShouldReturn()) return res;
         //}
 
-        RuntimeValue returnVal = (RuntimeValue)res.Register(valueToCall.Execute(args));
-        if (res.error != null) return res;
+        RuntimeValue returnVal = res.Register<RuntimeValue>(valueToCall.Execute(args));
+        if (res.ShouldReturn()) return res;
         returnVal = returnVal.SetPos(node.posStart, node.posEnd).SetContext(context);
         return res.Success(returnVal);
+    }
+
+    private RuntimeResult Visit_ReturnNode(Node node, Context context)
+    {
+        RuntimeResult res = new RuntimeResult();
+        ReturnNode returnNode = (ReturnNode)node;
+        RuntimeValue value = Number.NULL;
+
+        if (returnNode.nodeToReturn != null)
+        {
+            value = res.Register<RuntimeValue>(Visit(returnNode.nodeToReturn, context));
+            if (res.ShouldReturn()) return res;
+        }
+
+        return res.SuccessReturn(value);
+    }
+
+    private RuntimeResult Visit_ContinueNode(Node node, Context context)
+    {
+        return new RuntimeResult().SuccessContinue();
+    }
+
+    private RuntimeResult Visit_BreakNode(Node node, Context context)
+    {
+        return new RuntimeResult().SuccessBreak();
     }
 }

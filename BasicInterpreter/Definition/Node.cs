@@ -170,14 +170,14 @@ internal class FuncDefNode : Node
     internal Token varNameToken;
     internal List<Token> argNameTokens;
     internal Node bodyNode;
-    internal bool? shouldReturnNull;
+    internal bool? shouldAutoReturn;
 
-    public FuncDefNode(Token varNameToken, List<Token> argNameTokens, Node bodyNode, bool? shouldReturnNull)
+    public FuncDefNode(Token varNameToken, List<Token> argNameTokens, Node bodyNode, bool? shouldAutoReturn)
     {
         this.varNameToken = varNameToken;
         this.argNameTokens = argNameTokens;
         this.bodyNode = bodyNode;
-        this.shouldReturnNull = shouldReturnNull;
+        this.shouldAutoReturn = shouldAutoReturn;
 
         if (varNameToken != null)
         {
@@ -216,5 +216,35 @@ internal class CallNode : Node
         {
             posEnd = nodeToCall.posEnd;
         }
+    }
+}
+
+internal class ReturnNode : Node
+{
+    internal Node nodeToReturn;
+
+    public ReturnNode(Node nodeToReturn, Position posStart, Position posEnd)
+    {
+        this.nodeToReturn = nodeToReturn;
+        this.posStart = posStart;
+        this.posEnd = posEnd;
+    }
+}
+
+internal class ContinueNode : Node
+{
+    public ContinueNode(Position posStart, Position posEnd)
+    {
+        this.posStart = posStart;
+        this.posEnd = posEnd;
+    }
+}
+
+internal class BreakNode : Node
+{
+    public BreakNode(Position posStart, Position posEnd)
+    {
+        this.posStart = posStart;
+        this.posEnd = posEnd;
     }
 }

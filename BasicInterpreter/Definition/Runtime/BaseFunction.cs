@@ -53,8 +53,8 @@ internal abstract class BaseFunction : RuntimeValue
     protected RuntimeResult CheckAndPopulateArguments(List<string> argNames, RuntimeValue[] args, Context executionContext)
     {
         RuntimeResult res = new();
-        res.Register(CheckArguments(argNames, args));
-        if (res.error != null) return res;
+        res.Register<object>(CheckArguments(argNames, args));
+        if (res.ShouldReturn()) return res;
         PopulateArguments(argNames, args, executionContext);
         return res.Success(null);
     }

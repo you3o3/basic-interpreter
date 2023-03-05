@@ -13,8 +13,7 @@ public class SymbolTable
 
     public object Get(string name)
     {
-        object value;
-        symbols.TryGetValue(name, out value);
+        symbols.TryGetValue(name, out object value);
         if (value == null && parent != null)
         {
             return parent.Get(name);

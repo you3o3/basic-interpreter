@@ -11,18 +11,27 @@ internal static class Helper
         // https://stackoverflow.com/questions/12421160/string-lastindexof-bug
         int idxStart = s.LastIndexOf('\n', s.Length - 1, posStart.idx);
         if (idxStart == -1) idxStart = 0;
-        int idxEnd = (posStart.idx + 1 < s.Length) ? s.IndexOf('\n', posStart.idx + 1) : -1;
+        int idxEnd = (posStart.idx + 1 < s.Length) ? s.IndexOf('\n', idxStart + 1) : -1;
         if (idxEnd == -1) idxEnd = s.Length;
 
         int lineCount = posEnd.line - posStart.line + 1;
         for (int i = 0; i < lineCount; i++)
         {
-            string line = s.Substring(idxStart, idxEnd - idxStart);
+            string line = s[idxStart..idxEnd];
             int colStart = (i == 0) ? posStart.col : 0;
             int colEnd = (i == lineCount - 1) ? posEnd.col : line.Length - 1;
+            if (colStart < 0) colStart = 0;
+            if (colEnd < 0) colEnd = 0;
 
             result += line + '\n';
-            result += new string(' ', colStart) + new string('^', colEnd - colStart);
+            if (colEnd - colStart > 0)
+            {
+                result += new string(' ', colStart) + new string('^', colEnd - colStart);
+            }
+            else
+            {
+                result += new string(' ', colEnd) + new string('^', colStart - colEnd);
+            }
 
             idxStart = idxEnd;
             idxEnd = (idxStart + 1 < s.Length) ? s.IndexOf('\n', idxStart + 1) : -1;

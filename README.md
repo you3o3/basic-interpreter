@@ -4,6 +4,8 @@ This is an interpreter for a BASIC-like language written in C#.
 
 This code follows the tutorial ["Make your own programming language in Python"](https://www.youtube.com/playlist?list=PLZQftyCk7_SdoVexSmwy_tBgs7P0b97yD) series on YouTube which is written in Python 3, and this code is rewritten in C#.
 
+To start with, you can run [`BasicInterpreter/Example.cs`](BasicInterpreter/Example.cs) which runs the [`BasicInterpreter/example.myopl`](BasicInterpreter/example.myopl) file. You may want to set the path to the `example.myopl` manually. You can also investigate the grammar rules (syntax) of the language in [`grammer.txt`](grammer.txt). For viewing all the built-in variables and functions that are avaliable, you can read [`BasicInterpreter/Basic.cs`](BasicInterpreter/Basic.cs).
+
 ## Progress Checklist
 
 - [x] EP 1 - Lexer
@@ -18,6 +20,10 @@ This code follows the tutorial ["Make your own programming language in Python"](
 - [x] EP 9 - Strings
 - [x] EP 10 - Lists
 - [x] EP 11 - Built-in functions
-- [ ] EP 12 - Multi-line statements
-- [ ] EP 13 - Return, continue, break
-- [ ] EP 14 - Run statements and comments
+- [x] EP 12 - Multi-line statements
+- [x] EP 13 - Return, continue, break
+- [x] EP 14 - Run statements and comments (finale :tada:)
+
+## Known Issues
+
+1. Built-in functions `append()`, `pop()`, and `extend()` do not work because the built-in functions and the actual program use different `Context`. See `Execute()` in `BasicInterpreter/Runtime/BuiltInFunction.cs` and `Visit_CallNode()` in `BasicInterpreter/Interpreter.cs`.

@@ -33,7 +33,11 @@ internal class Lexer
             {
                 Advance();
             }
-            if (";\n".Contains(currCh))
+            else if (currCh == '#')
+            {
+                SkipComment();
+            }
+            else if (";\n".Contains(currCh))
             {
                 tokens.Add(new Token(Token.TT_NEWLINE, null, pos));
                 Advance();
@@ -131,6 +135,16 @@ internal class Lexer
         return (tokens, null);
     }
 
+    private void SkipComment()
+    {
+        Advance();
+        while (currCh != '\n')
+        {
+            Advance();
+        }
+        Advance();
+    }
+
     private Token MakeString()
     {
         string s = "";
@@ -144,6 +158,7 @@ internal class Lexer
             { 't', '\t' }
         };
 
+        //TODO revise this algo
         while (currCh != Constant.nullCh && (currCh != '"' || escapeCh))
         {
             if (escapeCh)
@@ -163,6 +178,7 @@ internal class Lexer
                 s += currCh;
             }
             Advance();
+            //escapeCh = false;
         }
 
         Advance();
@@ -288,5 +304,4 @@ internal class Lexer
 
         return new Token(tokenType, null, posStart, pos);
     }
-
 }

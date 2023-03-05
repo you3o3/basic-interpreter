@@ -11,7 +11,6 @@ internal class Parser
     public Parser(List<Token> tokens)
     {
         this.tokens = tokens;
-        //tokens.ForEach((token) => { Debug.Log(token.ToString()); } );
         tokenIdx = -1;
         Advance();
     }
@@ -28,7 +27,6 @@ internal class Parser
     {
         tokenIdx++;
         UpdateCurrentToken();
-        //Debug.Log(currToken.type);
         return currToken;
     }
 
@@ -36,7 +34,6 @@ internal class Parser
     {
         tokenIdx -= amount;
         UpdateCurrentToken();
-        //Debug.Log(currToken.type);
         return currToken;
     }
 
@@ -55,8 +52,6 @@ internal class Parser
 
     /////////////////////////////////////////////////////////////////
 
-    // FIXME some problem in if statements: if 5 == 5 then; print("xxx") doesn't work
-
     private ParseResult IfExprCases(string caseKeyword)
     {
         ParseResult res = new();
@@ -72,7 +67,7 @@ internal class Parser
         res.RegisterAdvancement();
         Advance();
 
-        Node condition = (Node)res.Register(Expr());
+        Node condition = res.Register<Node>(Expr());
         if (res.error != null) return res;
 
         if (!currToken.Matches(Token.TT_KEYWORD, "then"))
@@ -88,7 +83,7 @@ internal class Parser
             res.RegisterAdvancement();
             Advance();
 
-            Node statements = (Node)res.Register(Statements());
+            Node statements = res.Register<Node>(Statements());
             if (res.error != null) return res;
             cases.Add((condition, statements, true));
 
@@ -99,47 +94,44 @@ internal class Parser
             }
             else
             {
-                object allCases = res.Register(IfExprB_OR_C());
+                var allCases = res.Register<(List<(Node, Node, bool?)>, (Node, bool?))>(IfExprB_OR_C());
                 if (res.error != null) return res;
                 List<(Node condition, Node statements, bool? shouldReturnNull)> newCases;
-                (newCases, elseCase) = ((List<(Node, Node, bool?)>, (Node, bool?)))allCases;
-                //newCases.ForEach((c) => { cases.Add((c.condition, c.statements, null)); });
+                (newCases, elseCase) = allCases;
                 cases.AddRange(newCases);
             }
         }
         else
         {
-            Node expr = (Node)res.Register(Expr());
+            Node expr = res.Register<Node>(Statement());
             if (res.error != null) return res;
             cases.Add((condition, expr, false));
 
-            object allCases = res.Register(IfExprB_OR_C());
+            var allCases = res.Register<(List<(Node, Node, bool?)>, (Node, bool?))>(IfExprB_OR_C());
             if (res.error != null) return res;
             List<(Node condition, Node statements, bool? shouldReturnNull)> newCases;
-            (newCases, elseCase) = ((List<(Node, Node, bool?)>, (Node, bool?)))allCases;
-            //newCases.ForEach((c) => { cases.Add((c.condition, c.statements, null)); });
+            (newCases, elseCase) = allCases;
             cases.AddRange(newCases);
         }
         return res.Success((cases, elseCase));
     } 
 
-    private object IfExpr()
+    private ParseResult IfExpr()
     {
         ParseResult res = new();
-        object allCases = res.Register(IfExprCases("if"));
-        (List<(Node, Node, bool?)> cases, (Node, bool?) elseCase) = ((List<(Node, Node, bool?)>, (Node, bool?)))allCases;
+        (var cases, var elseCase) = res.Register<(List<(Node, Node, bool?)>, (Node, bool?))>(IfExprCases("if"));
         if (res.error != null) return res;
         return res.Success(new IfNode(cases, elseCase));
     }
 
     // elif
-    private object IfExprB()
+    private ParseResult IfExprB()
     {
         return IfExprCases("elif");
     }
 
     // else
-    private object IfExprC()
+    private ParseResult IfExprC()
     {
         ParseResult res = new();
         (Node, bool? shouldReturnNull) elseCase = (null, null);
@@ -154,7 +146,7 @@ internal class Parser
                 res.RegisterAdvancement();
                 Advance();
 
-                Node statements = (Node)res.Register(Statements());
+                Node statements = res.Register<Node>(Statements());
                 if (res.error != null) return res;
                 elseCase = (statements, true);
 
@@ -170,7 +162,7 @@ internal class Parser
             }
             else
             {
-                Node expr = (Node)res.Register(Expr());
+                Node expr = res.Register<Node>(Statement());
                 if (res.error != null) return res;
                 elseCase = (expr, false);
             }
@@ -178,7 +170,7 @@ internal class Parser
         return res.Success(elseCase);
     }
 
-    private object IfExprB_OR_C()
+    private ParseResult IfExprB_OR_C()
     {
         ParseResult res = new();
         List<(Node condition, Node statements, bool? shouldReturnNull)> cases = new();
@@ -186,20 +178,20 @@ internal class Parser
 
         if (currToken.Matches(Token.TT_KEYWORD, "elif"))
         {
-            object allCases = res.Register(IfExprB());
+            var allCases = res.Register<(List<(Node, Node, bool?)>, (Node, bool ?))>(IfExprB());
             if (res.error != null) return res;
-            (cases, elseCase) = ((List<(Node, Node, bool?)>, (Node, bool?)))allCases;
+            (cases, elseCase) = allCases;
         }
         else
         {
-            elseCase = ((Node, bool?))res.Register(IfExprC());
+            elseCase = res.Register<(Node, bool ?)>(IfExprC());
             if (res.error != null) return res;
         }
 
         return res.Success((cases, elseCase));
     }
 
-    private object ForExpr()
+    private ParseResult ForExpr()
     {
         ParseResult res = new();
 
@@ -230,7 +222,7 @@ internal class Parser
         res.RegisterAdvancement();
         Advance();
 
-        Node startValNode = (Node)res.Register(Expr());
+        Node startValNode = res.Register<Node>(Expr());
         if (res.error != null) return res;
 
         if (!currToken.Matches(Token.TT_KEYWORD, "to"))
@@ -241,7 +233,7 @@ internal class Parser
         res.RegisterAdvancement();
         Advance();
 
-        Node endValNode = (Node)res.Register(Expr());
+        Node endValNode = res.Register<Node>(Expr());
         if (res.error != null) return res;
 
         Node stepValNode = null;
@@ -251,7 +243,7 @@ internal class Parser
             res.RegisterAdvancement();
             Advance();
 
-            stepValNode = (Node)res.Register(Expr());
+            stepValNode = res.Register<Node>(Expr());
             if (res.error != null) return res;
         }
 
@@ -269,7 +261,7 @@ internal class Parser
             res.RegisterAdvancement();
             Advance();
 
-            body = (Node)res.Register(Statements());
+            body = res.Register<Node>(Statements());
             if (res.error != null) return res;
 
             if (!currToken.Matches(Token.TT_KEYWORD, "end"))
@@ -283,13 +275,13 @@ internal class Parser
             return res.Success(new ForNode(varName, startValNode, endValNode, stepValNode, body, true));
         }
 
-        body = (Node)res.Register(Expr());
+        body = res.Register<Node>(Statement());
         if (res.error != null) return res;
 
         return res.Success(new ForNode(varName, startValNode, endValNode, stepValNode, body, false));
     }
 
-    private object WhileExpr()
+    private ParseResult WhileExpr()
     {
         ParseResult res = new();
 
@@ -303,7 +295,7 @@ internal class Parser
         res.RegisterAdvancement();
         Advance();
 
-        Node conditionNode = (Node)res.Register(Expr());
+        Node conditionNode = res.Register<Node>(Expr());
         if (res.error != null) return res;
 
         if (!currToken.Matches(Token.TT_KEYWORD, "then"))
@@ -320,7 +312,7 @@ internal class Parser
             res.RegisterAdvancement();
             Advance();
 
-            body = (Node)res.Register(Statements());
+            body = res.Register<Node>(Statements());
             if (res.error != null) return res;
 
             if (!currToken.Matches(Token.TT_KEYWORD, "end"))
@@ -334,13 +326,13 @@ internal class Parser
             return res.Success(new WhileNode(conditionNode, body, true));
         }
 
-        body = (Node)res.Register(Expr());
+        body = res.Register<Node>(Statement());
         if (res.error != null) return res;
 
         return res.Success(new WhileNode(conditionNode, body, false));
     }
 
-    private object FuncDef()
+    private ParseResult FuncDef()
     {
         ParseResult res = new();
 
@@ -418,10 +410,10 @@ internal class Parser
             res.RegisterAdvancement();
             Advance();
 
-            Node nodeToReturn = (Node)res.Register(Expr());
+            Node nodeToReturn = res.Register<Node>(Expr());
             if (res.error != null) return res;
 
-            return res.Success(new FuncDefNode(varNameToken, argNameTokens, nodeToReturn, false));
+            return res.Success(new FuncDefNode(varNameToken, argNameTokens, nodeToReturn, true));
         }
 
         if (currToken.type != Token.TT_NEWLINE)
@@ -432,7 +424,7 @@ internal class Parser
         res.RegisterAdvancement();
         Advance();
 
-        Node body = (Node)res.Register(Statements());
+        Node body = res.Register<Node>(Statements());
         if (res.error != null) return res;
 
         if (!currToken.Matches(Token.TT_KEYWORD, "end"))
@@ -443,7 +435,7 @@ internal class Parser
         res.RegisterAdvancement();
         Advance();
 
-        return res.Success(new FuncDefNode(varNameToken, argNameTokens, body, true));
+        return res.Success(new FuncDefNode(varNameToken, argNameTokens, body, false));
     }
 
     public ParseResult Atom()
@@ -480,7 +472,7 @@ internal class Parser
         {
             res.RegisterAdvancement();
             Advance();
-            Node expr = (Node)res.Register(Expr());
+            Node expr = res.Register<Node>(Expr());
             if (res.error != null) return res;
             if (currToken.type == Token.TT_RPAREN)
             {
@@ -497,7 +489,7 @@ internal class Parser
         // [
         else if (token.type == Token.TT_LSQUARE)
         {
-            Node listExpr = (Node)res.Register(ListExpr());
+            Node listExpr = res.Register<Node>(ListExpr());
             if (res.error != null) return res;
             return res.Success(listExpr);
         }
@@ -505,7 +497,7 @@ internal class Parser
         // if
         else if (token.Matches(Token.TT_KEYWORD, "if"))
         {
-            Node ifExpr = (Node)res.Register(IfExpr());
+            Node ifExpr = res.Register<Node>(IfExpr());
             if (res.error != null) return res;
             return res.Success(ifExpr);
         }
@@ -513,7 +505,7 @@ internal class Parser
         // for
         else if (token.Matches(Token.TT_KEYWORD, "for"))
         {
-            Node forExpr = (Node)res.Register(ForExpr());
+            Node forExpr = res.Register<Node>(ForExpr());
             if (res.error != null) return res;
             return res.Success(forExpr);
         }
@@ -521,7 +513,7 @@ internal class Parser
         // while
         else if (token.Matches(Token.TT_KEYWORD, "while"))
         {
-            Node whileExpr = (Node)res.Register(WhileExpr());
+            Node whileExpr = res.Register<Node>(WhileExpr());
             if (res.error != null) return res;
             return res.Success(whileExpr);
         }
@@ -529,7 +521,7 @@ internal class Parser
         // function
         else if (token.Matches(Token.TT_KEYWORD, "function"))
         {
-            Node funcDef = (Node)res.Register(FuncDef());
+            Node funcDef = res.Register<Node>(FuncDef());
             if (res.error != null) return res;
             return res.Success(funcDef);
         }
@@ -545,7 +537,7 @@ internal class Parser
     public ParseResult Call()
     {
         ParseResult res = new();
-        Node atom = (Node)res.Register(Atom());
+        Node atom = res.Register<Node>(Atom());
         if (res.error != null) return res;
 
         if (currToken.type == Token.TT_LPAREN)
@@ -561,7 +553,7 @@ internal class Parser
             }
             else
             {
-                argNodes.Add((Node)res.Register(Expr()));
+                argNodes.Add(res.Register<Node>(Expr()));
                 if (res.error != null)
                     return res.Failure(new InvalidSyntaxError(
                         "Expected ')', 'var', 'if', 'for', 'while', 'function', int, float, identifier, '+', '-', '(', '[' or 'not'",
@@ -573,7 +565,7 @@ internal class Parser
                     res.RegisterAdvancement();
                     Advance();
 
-                    argNodes.Add((Node)res.Register(Expr()));
+                    argNodes.Add(res.Register<Node>(Expr()));
                     if (res.error != null) return res;
                 }
 
@@ -599,7 +591,7 @@ internal class Parser
         {
             res.RegisterAdvancement();
             Advance();
-            Node factor = (Node)res.Register(Factor());
+            Node factor = res.Register<Node>(Factor());
             if (res.error != null) return res;
             return res.Success(new UnaryOpNode(factor, token));
         }
@@ -640,7 +632,7 @@ internal class Parser
         }
         else
         {
-            elementNodes.Add((Node)res.Register(Expr()));
+            elementNodes.Add(res.Register<Node>(Expr()));
             if (res.error != null)
                 return res.Failure(new InvalidSyntaxError(
                     "Expected ']', 'var', 'if', 'for', 'while', 'function', int, float, identifier, '+', '-', '(', '[' or 'not'",
@@ -652,7 +644,7 @@ internal class Parser
                 res.RegisterAdvancement();
                 Advance();
 
-                elementNodes.Add((Node)res.Register(Expr()));
+                elementNodes.Add(res.Register<Node>(Expr()));
                 if (res.error != null) return res;
             }
 
@@ -677,11 +669,11 @@ internal class Parser
             res.RegisterAdvancement();
             Advance();
 
-            Node node_ = (Node)res.Register(CompExpr());
+            Node node_ = res.Register<Node>(CompExpr());
             if (res.error != null) return res;
             return res.Success(new UnaryOpNode(node_, opToken));
         }
-        Node node = (Node)res.Register(BinOp(ArithExpr, new List<string>
+        Node node = res.Register<Node>(BinOp(ArithExpr, new List<string>
                 { Token.TT_EE, Token.TT_NE, Token.TT_LT, Token.TT_GT, Token.TT_LTE, Token.TT_GTE }
         ));
         if (res.error != null) return res.Failure(new InvalidSyntaxError(
@@ -715,14 +707,13 @@ internal class Parser
 
             res.RegisterAdvancement();
             Advance();
-            Node expr = (Node)res.Register(Expr());
+            Node expr = res.Register<Node>(Expr());
             if (res.error != null) return res;
             return res.Success(new VarAssignNode(varName, expr));
         }
 
-        Node node = (Node)res.Register(BinOp(CompExpr,
+        Node node = res.Register<Node>(BinOp(CompExpr,
             new List<(string, string)> { (Token.TT_KEYWORD, "and"), (Token.TT_KEYWORD, "or") }));
-        //Debug.Log(node.ToString());
         if (res.error != null)
             return res.Failure(new InvalidSyntaxError(
                 "Expected 'var', 'if', 'for', 'while', 'function', int, float, identifier, '+', '-', '(', '[' or 'not'",
@@ -744,7 +735,8 @@ internal class Parser
             Advance();
         }
 
-        Node statement = (Node)res.Register(Expr());
+        Node statement = res.Register<Node>(Statement());
+
         if (res.error != null) return res;
         statements.Add(statement);
 
@@ -759,23 +751,71 @@ internal class Parser
                 Advance();
                 newlineCount++;
             }
+
             if (newlineCount == 0)
             {
                 moreStatements = false;
             }
             if (!moreStatements) break;
 
-            statement = (Node)res.TryRegister(Expr());
-            if (statement == null)
+            Node s = res.TryRegister<Node>(Statement());
+
+            if (s == default(Node))
             {
                 Reverse(res.toReverseCount);
                 moreStatements = false;
                 continue;
             }
-            statements.Add(statement);
+            statements.Add(s);
         }
         return res.Success(new ListNode(statements, posStart, currToken.posEnd.Copy()));
+    }
 
+    public ParseResult Statement()
+    {
+        ParseResult res = new();
+        Position posStart = currToken.posStart.Copy();
+
+        // return
+        if (currToken.Matches(Token.TT_KEYWORD, "return"))
+        {
+            res.RegisterAdvancement();
+            Advance();
+
+            Node expr = res.TryRegister<Node>(Expr());
+            if (expr == default(Node))
+            {
+                Reverse(res.toReverseCount);
+            }
+
+            return res.Success(new ReturnNode(expr, posStart, currToken.posStart.Copy()));
+        }
+
+        // continue
+        if (currToken.Matches(Token.TT_KEYWORD, "continue"))
+        {
+            res.RegisterAdvancement();
+            Advance();
+            return res.Success(new ContinueNode(posStart, currToken.posStart.Copy()));
+        }
+
+        // break
+        if (currToken.Matches(Token.TT_KEYWORD, "break"))
+        {
+            res.RegisterAdvancement();
+            Advance();
+            return res.Success(new BreakNode(posStart, currToken.posStart.Copy()));
+        }
+
+        Node expr2 = res.Register<Node>(Expr());
+        if (res.error != null)
+        {
+            return res.Failure(new InvalidSyntaxError(
+                "Expected 'return', 'continue', 'break', 'var', 'if', 'for', 'while', 'function', int, float, identifier, '+', '-', '(', '[' or 'not'",
+                currToken.posStart, currToken.posEnd
+            ));
+        }
+        return res.Success(expr2);
     }
 
     /////////////////////////////////////////////////////////////////
@@ -784,17 +824,15 @@ internal class Parser
     {
         if (func2 == null) func2 = func1;
         ParseResult res = new();
-        Node left = (Node)res.Register(func1());
+        Node left = res.Register<Node>(func1());
         if (res.error != null) return res;
 
         while (opTokens.Contains(currToken.type))
         {
-            //Debug.Log("currentToken: " + currToken.type);
-            //opTokens.ForEach((opToken) => { Debug.Log("opTokens: " + opToken); });
             Token opToken = currToken;
             res.RegisterAdvancement();
             Advance();
-            Node right = (Node)res.Register(func2());
+            Node right = res.Register<Node>(func2());
             if (res.error != null) return res;
             left = new BinOpNode(left, right, opToken);
         }
@@ -806,7 +844,7 @@ internal class Parser
         if (func2 == null) func2 = func1;
 
         ParseResult res = new();
-        Node left = (Node)res.Register(func1());
+        Node left = res.Register<Node>(func1());
         if (res.error != null) return res;
 
         //if (!(currToken.value is string))
@@ -831,13 +869,10 @@ internal class Parser
 
         while ((currToken.value is string) && IsContain())
         {
-            //Debug.Log("BinOp");
-            //Debug.Log("currentToken: " + currToken.type + (string)currToken.value);
-            //opTokens.ForEach((opToken) => { Debug.Log("opTokens: " + opToken); });
             Token opToken = currToken;
             res.RegisterAdvancement();
             Advance();
-            Node right = (Node)res.Register(func2());
+            Node right = res.Register<Node>(func2());
             if (res.error != null) return res;
             left = new BinOpNode(left, right, opToken);
         }
