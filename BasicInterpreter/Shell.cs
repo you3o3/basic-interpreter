@@ -7,7 +7,8 @@ class Shell
 
     static void Main(string[] args)
     {
-        Console.CancelKeyPress += delegate (object? sender, ConsoleCancelEventArgs e) {
+        Console.CancelKeyPress += delegate (object? sender, ConsoleCancelEventArgs e)
+        {
             e.Cancel = true;
             Shell.running = false;
         };
@@ -21,7 +22,7 @@ class Shell
                 continue;
             }
 
-            (object obj, Error err, Context context) = Basic.Run("Hi", text, Shell.context);
+            (object obj, Error err, Context context) = Basic.Run("Shell.cs", text, Shell.context);
             if (err != null)
             {
                 Console.WriteLine(err.ToString());
